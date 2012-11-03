@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Diamond Dash</title>
+
+<style>
+body { padding: 0px; margin: 0px; }
+canvas#surface { border: 1px solid black; margin: 10px; float: left; }
+div#score { float: left; margin: 10px; font-size: 30px; }
+</style>
+
+<script src="jquery.1.7.1.min.js" type="text/javascript"></script>
+<script>
+$(document).ready(function() {
+
+	var max_rows = 10;
+	var max_columns = 10;
+	var block_width = 60;
+	var margin = 10;
+	var valid_number = 3;
+	var region;
+	var score = 0;
+	var score_each_block = 500;
+	
+	function Axis() {
+		this.data = [];
+	}
+	Axis.prototype.reset = function(num_columns) {
+		this.data.length = 0;
+		for(var i=0; i<num_columns; i++) {
+			this.data.push({'y':0, 'height':0});
+		}
+	}
+
+	axis = new Axis();
+	
+	// Canvas 
+	var canvas = $("canvas#surface")[0];
+	var ctx = canvas.getContext("2d");
+	var w = $("canvas#surface").width();
+	var h = $("canvas#surface").height();
+
+	// Color object
+	var colors = ["red", "green", "blue", "yellow", "purple"];
+	var data_array = [];
+	for (var j=0; j<max_rows; j++) {
+		var row = [];
+		for (var i=0; i<max_columns; i++) {
+			color = random_color();
+			set_color(colors[color], i, j);
+			row.push(color);
+		}
+		data_array.push(row);
+	}
+	update_score();
+
+	// Event handler
+	$("canvas#surface").click(function(evt) {
+		var x = evt.clientX - margin;
+		var y = evt.clientY - margin;
+		var i = parseInt(x/block_width);
+		var j = parseInt(y/block_width);
+		// If it's in the game box
+		if (i < max_columns && j < max_rows) {
+			region = [];
+			axis.reset(max_columns);
+			get_region(i, j, null);
+
+			if(region.length >= valid_number) {
+				// collect stat for x-axis
+				for(var k=0; k<region.length; k++) {
+					xr = region[k].x;
+					yr = region[k].y;
+					axis.data[xr].height += 1;
+					if(axis.data[xr].y < yr) 
+						axis.data[xr].y = yr;
+				}			
+				// explode a sound
+				play_sound();
+				score += score_each_block * region.length;
+				update_score();
+				// remove blocks and fill in spaces
+				for(var k=0; k<axis.data.length; k++) {
+					var h = axis.data[k].height;
+					var ya = axis.data[k].y;
+					if (h > 0) {
+						for(var l=ya-h; l>=0; l--) {
+							data_array[l+h][k] = data_array[l][k];
+							set_color(colors[data_array[l+h][k]], k, l+h);
+						}
+						for(var l=h-1; l>=0; l--) {
+							color = random_color();
+							data_array[l][k] = color;
+							set_color(colors[color], k, l);
+						}
+					}
+				}
+			}
+
+		}
+	});
+
+	function random_color() {
+		return parseInt(Math.random()*5);
+	}
+
+	function is_already_in_region(x, y) {
+		for(var i=0; i<region.length; i++) {
+			if(region[i].x == x && region[i].y == y) 
+				return true;
+		}
+		return false
+	}
+
+	function get_region(x, y, from) {
+		// from: "top", "down", "left", "right"
+		picked_color = data_array[y][x];
+		var t, l, r, d;
+		region.push({'x':x, 'y':y});
+		// top
+		if(y-1 >= 0 && from != "down" && !is_already_in_region(x, y-1)) {
+			t = data_array[y-1][x];
+			if(t == picked_color) {
+				get_region(x, y-1, "top");
+			}
+		}
+		// left 
+		if(x-1 >= 0 && from != "right" && !is_already_in_region(x-1, y)) {
+			l = data_array[y][x-1];
+			if(l == picked_color) {
+				get_region(x-1, y, "left");
+			}
+		}
+		// right 
+		if(x+1 < max_columns && from != "left" && !is_already_in_region(x+1, y)) {
+			r = data_array[y][x+1];
+			if(r == picked_color) {
+				get_region(x+1, y, "right");
+			}
+		}
+		// down
+		if(y+1 < max_rows && from != "top" && !is_already_in_region(x, y+1)) {
+			d = data_array[y+1][x];
+			if(d == picked_color) {
+				get_region(x, y+1, "down");
+			}
+		} 
+	}
+
+	function set_color(color, x, y) {
+		ctx.fillStyle = color;
+		ctx.fillRect(x*block_width, y*block_width, block_width, block_width);
+	}  
+
+	function play_sound() {
+		$('div#sound').html("<embed src=\"button-3.mp3\" hidden=\"true\" autostart=\"true\" loop=\"false\" />");
+	}
+
+	function update_score() {
+		$('div#score').html(score);
+	}
+
+});
+</script>
+
+</head>
+<body>
+	<canvas id="surface" width="600" height="600"></canvas>
+	<div id="score">
+		20
+	</div>
+	<div id="sound"></div>
+</body>
+</html>
